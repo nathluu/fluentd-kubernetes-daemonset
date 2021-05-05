@@ -1,15 +1,23 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: app-logs
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: fluentd
-  namespace: kube-system
+  namespace: app-logs
+  labels:
+    app: fluentd
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: fluentd
-  namespace: kube-system
+  # namespace: app-logs
+  labels:
+    app: fluentd
 rules:
 - apiGroups:
   - ""
@@ -32,25 +40,25 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: fluentd
-  namespace: kube-system
+  namespace: app-logs
 ---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: fluentd-azureblob
-  namespace: kube-system
+  name: fluentd
+  namespace: app-logs
   labels:
-    k8s-app: fluentd-logging
+    app: fluentd
     version: v1
 spec:
   selector:
     matchLabels:
-      k8s-app: fluentd-logging
+      app: fluentd
       version: v1
   template:
     metadata:
       labels:
-        k8s-app: fluentd-logging
+        app: fluentd
         version: v1
     spec:
       serviceAccount: fluentd
@@ -59,7 +67,7 @@ spec:
       - key: node-role.kubernetes.io/master
         effect: NoSchedule
       containers:
-      - name: fluentd-azureblob
+      - name: fluentd
         image: fluent/fluentd-kubernetes-daemonset:v1-debian-azureblob
         imagePullPolicy: Always
         env:
@@ -67,17 +75,17 @@ spec:
           - name: AZUREBLOB_AZURE_CLOUD
             value: "AZUREPUBLICCLOUD"
           - name:  AZUREBLOB_ACCOUNT_NAME
-            value: "mystorageaccount"
+            value: "tmaapplogs"
           # Use AZUREBLOB_ACCOUNT_KEY for access key authorization, AZUREBLOB_SAS_TOKEN for shared access signature authorization, 
           # AZUREBLOB_CONNECTION_STRING to use the full connection string generated in the Azure Portal or neither to use Managed Service Identity.
-          - name:  AZUREBLOB_ACCOUNT_KEY
-            value: "mystorageaccountkey"
+          # - name:  AZUREBLOB_ACCOUNT_KEY
+          #   value: "mystorageaccountkey"
           - name:  AZUREBLOB_CONNECTION_STRING
-            value: "mystorageaccountconnstr"
+            value: "BlobEndpoint=https://tmaapplogs.blob.core.windows.net/;QueueEndpoint=https://tmaapplogs.queue.core.windows.net/;FileEndpoint=https://tmaapplogs.file.core.windows.net/;TableEndpoint=https://tmaapplogs.table.core.windows.net/;SharedAccessSignature=sv=2020-02-10&ss=bf&srt=sco&sp=rwdlacx&se=2021-05-07T16:05:09Z&st=2021-05-05T08:05:09Z&spr=https&sig=Tmxqc%2FxUTBcRdl5u9AG0a27s1EAj7B6Li%2FIhWKvzx00%3D"
           - name:  AZUREBLOB_SAS_TOKEN
-            value: "mysastoken"
+            value: "?sv=2020-02-10&ss=bf&srt=sco&sp=rwdlacx&se=2021-05-07T16:05:09Z&st=2021-05-05T08:05:09Z&spr=https&sig=Tmxqc%2FxUTBcRdl5u9AG0a27s1EAj7B6Li%2FIhWKvzx00%3D"
           - name:  AZUREBLOB_CONTAINER
-            value: "mycontainer"
+            value: "istio-fleetman-logs"
           - name:  AZUREBLOB_LOG_PATH
             value: "mylogpath"
           # Optional Managed Identity configuration options
@@ -85,9 +93,11 @@ spec:
             value: "2020-12-01"
           - name:  AZUREBLOB_TOKEN_REFRESH_INTERVAL
             value: "60"
+          # - name: FLUENTD_SYSTEMD_CONF
+          #   value: disable
         resources:
           limits:
-            memory: 200Mi
+            memory: 512Mi
           requests:
             cpu: 100m
             memory: 200Mi
